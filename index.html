@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Smart Daily Poster</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #eef2f7; padding: 20px; color: #333; }
+        .container { max-width: 700px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        h2 { color: #1877f2; text-align: center; }
+        input, textarea, button { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; }
+        button { background: #1877f2; color: white; border: none; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        button:hover { background: #145dbf; }
+        .log-box { background: #1e1e1e; color: #00ff00; padding: 15px; font-family: 'Courier New', Courier, monospace; height: 250px; overflow-y: auto; border-radius: 8px; margin-top: 20px; font-size: 13px; }
+        .config-sec { background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid #1877f2; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🚀 AI Daily Auto-Poster</h2>
+    
+    <div class="config-sec">
+        <strong>Settings (ये सुरक्षित हैं, ब्राउज़र में ही रहेंगे):</strong>
+        <input type="password" id="geminiKey" placeholder="Google Gemini API Key यहाँ डालें">
+        <input type="password" id="fbToken" placeholder="Facebook Page Access Token यहाँ डालें">
+        <input type="text" id="pageId" placeholder="Facebook Page ID यहाँ डालें">
+    </div>
+
+    <h3>Automation Setup</h3>
+    <input type="text" id="topic" placeholder="किस टॉपिक पर पोस्ट करना है? (उदा: Motivation, Technology, Facts)">
+    <input type="number" id="interval" placeholder="कितने मिनट के अंतराल पर पोस्ट करें? (उदा: 60)">
+    
+    <button onclick="startAIAutomation()">AI Automation शुरू करें ✅</button>
+
+    <div class="log-box" id="workLog">सिस्टम तैयार है... कृपया अपनी कीज़ (Keys) डालें और शुरू करें।</div>
+</div>
+
+<script>
+    const logDiv = document.getElementById('workLog');
+
+    function addLog(msg, color = "#00ff00") {
+        const time = new Date().toLocaleTimeString();
+        logDiv.innerHTML += `<div style="color: ${color}">[${time}] ${msg}</div>`;
+        logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    async function generateAIContent(topic, apiKey) {
+        addLog(`Gemini AI से कंटेंट लिखवाया जा रहा है: ${topic}...`, "#3498db");
+        try {
+            const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: `Write a professional and engaging Facebook post about ${topic} in Hindi and English mix. Use emojis. Keep it legal and clean.` }] }]
+                })
+            });
+            const data = await resp.json();
+            return data.candidates[0].content.parts[0].text;
+        } catch (err) {
+            addLog("AI Error: कंटेंट जेनरेट नहीं हो पाया।", "red");
+            return null;
+        }
+    }
+
+    async function postToFB(message, token, pageId) {
+        addLog("फेसबुक पर पोस्ट भेजा जा रहा है...");
+        try {
+            const resp = await fetch(`https://graph.facebook.com/${pageId}/feed`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: message, access_token: token })
+            });
+            const data = await resp.json();
+            if (data.id) {
+                addLog(`✅ पोस्ट सफल! ID: ${data.id}`, "#2ecc71");
+            } else {
+                addLog(`❌ FB Error: ${data.error.message}`, "red");
+            }
+        } catch (err) {
+            addLog("FB Network Error: " + err.message, "red");
+        }
+    }
+
+    async function runProcess() {
+        const geminiKey = document.getElementById('geminiKey').value;
+        const fbToken = document.getElementById('fbToken').value;
+        const pageId = document.getElementById('pageId').value;
+        const topic = document.getElementById('topic').value;
+
+        const aiText = await generateAIContent(topic, geminiKey);
+        if (aiText) {
+            await postToFB(aiText, fbToken, pageId);
+        }
+    }
+
+    function startAIAutomation() {
+        const intervalMin = parseFloat(document.getElementById('interval').value);
+        
+        if (!intervalMin || intervalMin <= 0) {
+            alert("कृपया सही समय अंतराल (Minutes) डालें!");
+            return;
+        }
+
+        addLog(`ऑटोमेशन शुरू! हर ${intervalMin} मिनट में AI पोस्ट करेगा।`, "yellow");
+        
+        // पहली पोस्ट तुरंत करें
+        runProcess();
+
+        // अगली पोस्ट्स शेड्यूल करें
+        setInterval(runProcess, intervalMin * 60 * 1000);
+    }
+</script>
+
+</body>
+</html>
+
