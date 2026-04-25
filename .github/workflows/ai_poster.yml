@@ -1,0 +1,32 @@
+name: AI Auto Post
+
+on:
+  schedule:
+    - cron: '0 */6 * * *' # हर 6 घंटे में खुद चलेगा
+  workflow_dispatch:      # जब आप चाहें बटन दबाकर चलाने के लिए
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate and Post to FB
+        run: |
+          # 1. Gemini से कंटेंट लेना और उसे एक वेरिएबल में सेव करना
+          AI_TEXT=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${{ secrets.GEMINI_KEY }}" \
+          -H "Content-Type: application/json" \
+          -d '{"contents": [{"parts":[{"text": "Write a short motivation quote in Hindi with emojis for Facebook page post."}]}]}' \
+          | jq -r '.candidates[0].content.parts[0].text')
+
+          # 2. चेक करना कि कंटेंट मिला या नहीं
+          if [ "$AI_TEXT" == "null" ]; then
+            echo "Error: AI content could not be generated"
+            exit 1
+          fi
+
+          echo "Generated Post: $AI_TEXT"
+
+          # 3. फेसबुक पेज पर पोस्ट करना
+          curl -X POST "https://graph.facebook.com/${{ secrets.FB_PAGE_ID }}/feed" \
+          --data-urlencode "message=$AI_TEXT" \
+          -d "access_token=${{ secrets.FB_TOKEN }}"
+          
